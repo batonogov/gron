@@ -15,7 +15,6 @@ type CronField struct {
 	min, max int
 }
 
-// Define valid ranges for each cron field
 var cronFields = []CronField{
 	{0, 59}, // minutes
 	{0, 23}, // hours
@@ -32,11 +31,11 @@ type CronSchedule struct {
 	months      []int
 	daysOfWeek  []int
 	command     string
-	interval    time.Duration // Used for @every format
+	interval    time.Duration // For @every format
 	isEvery     bool          // Flag to identify @every format
+	rawSchedule string        // Original schedule string for logging
 }
 
-// Predefined special schedule formats
 var specialSchedules = map[string]string{
 	"@hourly":  "0 * * * *",
 	"@daily":   "0 0 * * *",
@@ -45,16 +44,11 @@ var specialSchedules = map[string]string{
 	"@yearly":  "0 0 1 1 *",
 }
 
-// parseField parses a single field of a cron expression
-// Supports:
-// - "*" for any value
-// - "*/n" for step values
-// - specific numbers
 func parseField(field string, limits CronField) ([]int, error) {
+	var result []int
 	if field == "*" {
-		result := make([]int, limits.max-limits.min+1)
-		for i := range result {
-			result[i] = i + limits.min
+		for i := limits.min; i <= limits.max; i++ {
+			result = append(result, i)
 		}
 		return result, nil
 	}
@@ -64,28 +58,53 @@ func parseField(field string, limits CronField) ([]int, error) {
 		if err != nil {
 			return nil, err
 		}
-		var result []int
 		for i := limits.min; i <= limits.max; i += step {
 			result = append(result, i)
 		}
 		return result, nil
 	}
 
-	// Обработка конкретного значения
+	if strings.Contains(field, "-") {
+		parts := strings.Split(field, "-")
+		start, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return nil, err
+		}
+		end, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, err
+		}
+		for i := start; i <= end; i++ {
+			result = append(result, i)
+		}
+		return result, nil
+	}
+
+	if strings.Contains(field, ",") {
+		for _, part := range strings.Split(field, ",") {
+			val, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, val)
+		}
+		return result, nil
+	}
+
 	val, err := strconv.Atoi(field)
 	if err != nil {
 		return nil, err
 	}
+	if limits == cronFields[4] && val == 7 {
+		val = 0
+	}
 	if val < limits.min || val > limits.max {
-		return nil, err
+		return nil, fmt.Errorf("value %d out of range", val)
 	}
 	return []int{val}, nil
 }
 
-// parseCronSchedule parses a complete cron expression into a CronSchedule
-// Supports both standard cron format and special formats (@hourly, @daily, etc.)
 func parseCronSchedule(cronExpr string) (*CronSchedule, error) {
-	// Проверяем специальные форматы
 	if strings.HasPrefix(cronExpr, "@") {
 		if schedule, ok := specialSchedules[cronExpr]; ok {
 			cronExpr = schedule
@@ -100,8 +119,6 @@ func parseCronSchedule(cronExpr string) (*CronSchedule, error) {
 	}
 
 	schedule := &CronSchedule{}
-
-	// Парсим каждое поле
 	var err error
 	schedule.minutes, err = parseField(fields[0], cronFields[0])
 	if err != nil {
@@ -123,53 +140,23 @@ func parseCronSchedule(cronExpr string) (*CronSchedule, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return schedule, nil
 }
 
-// shouldRun checks if the schedule should run at the given time
-func (s *CronSchedule) shouldRun(t time.Time) bool {
-	contains := func(arr []int, val int) bool {
-		for _, v := range arr {
-			if v == val {
-				return true
-			}
-		}
-		return false
-	}
-
-	return contains(s.minutes, t.Minute()) &&
-		contains(s.hours, t.Hour()) &&
-		contains(s.daysOfMonth, t.Day()) &&
-		contains(s.months, int(t.Month())) &&
-		contains(s.daysOfWeek, int(t.Weekday()))
-}
-
-// parseEveryFormat parses the @every duration format
-// Example: "@every 1h30m"
 func parseEveryFormat(duration string) (*CronSchedule, error) {
 	durationStr := strings.TrimPrefix(duration, "@every ")
-
 	d, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return nil, err
 	}
 
-	schedule := &CronSchedule{
-		interval: d,
-		isEvery:  true,
-	}
-
-	return schedule, nil
+	return &CronSchedule{
+		interval:    d,
+		isEvery:     true,
+		rawSchedule: "@every " + durationStr,
+	}, nil
 }
 
-// loadTasks loads all tasks from environment variables
-// Environment variables should be in format:
-// TASK_* = "<cron expression> <command>"
-// Supports three formats:
-// 1. Standard cron: "* * * * * /path/to/command"
-// 2. @every format: "@every 1h /path/to/command"
-// 3. Special formats: "@hourly /path/to/command"
 func loadTasks() []*CronSchedule {
 	var tasks []*CronSchedule
 
@@ -182,7 +169,6 @@ func loadTasks() []*CronSchedule {
 
 			taskDef := strings.TrimSpace(parts[1])
 			fields := strings.Fields(taskDef)
-
 			if len(fields) < 2 {
 				log.Printf("Invalid task format: %s", taskDef)
 				continue
@@ -192,84 +178,87 @@ func loadTasks() []*CronSchedule {
 			var err error
 			var command string
 
-			// Проверяем специальные форматы (@hourly, @daily и т.д.)
-			if strings.HasPrefix(fields[0], "@") && !strings.HasPrefix(fields[0], "@every") {
-				schedule, err = parseCronSchedule(fields[0])
-				if err != nil {
-					log.Printf("Failed to parse special format '%s': %v", fields[0], err)
-					continue
+			if strings.HasPrefix(fields[0], "@") {
+				if strings.HasPrefix(fields[0], "@every") {
+					everyExpr := fields[0] + " " + fields[1]
+					schedule, err = parseEveryFormat(everyExpr)
+					command = strings.Join(fields[2:], " ")
+				} else {
+					schedule, err = parseCronSchedule(fields[0])
+					command = strings.Join(fields[1:], " ")
 				}
-				command = strings.Join(fields[1:], " ")
-			} else if strings.HasPrefix(fields[0], "@every") {
-				everyExpr := fields[0] + " " + fields[1]
-				schedule, err = parseEveryFormat(everyExpr)
-				if err != nil {
-					log.Printf("Failed to parse @every format '%s': %v", everyExpr, err)
-					continue
-				}
-				command = strings.Join(fields[2:], " ")
 			} else {
-				// Обрабатываем обычный cron формат
 				cronExpr := strings.Join(fields[:5], " ")
 				schedule, err = parseCronSchedule(cronExpr)
-				if err != nil {
-					log.Printf("Failed to parse cron expression '%s': %v", cronExpr, err)
-					continue
-				}
 				command = strings.Join(fields[5:], " ")
+				schedule.rawSchedule = cronExpr
+			}
+
+			if err != nil {
+				log.Printf("Failed to parse task: %s, error: %v", taskDef, err)
+				continue
 			}
 
 			schedule.command = command
-			log.Printf("Scheduled task: '%s' with schedule '%s'", command, taskDef)
 			tasks = append(tasks, schedule)
 		}
 	}
 	return tasks
 }
 
-// executeCommand runs the specified command using bash
-// Logs both the command execution and its output
+func (s *CronSchedule) shouldRun(t time.Time) bool {
+	contains := func(arr []int, val int) bool {
+		for _, v := range arr {
+			if v == val {
+				return true
+			}
+		}
+		return false
+	}
+	return contains(s.minutes, t.Minute()) &&
+		contains(s.hours, t.Hour()) &&
+		contains(s.daysOfMonth, t.Day()) &&
+		contains(s.months, int(t.Month())) &&
+		contains(s.daysOfWeek, int(t.Weekday()))
+}
+
 func executeCommand(command string) {
 	log.Printf("Running command: %s", command)
 	cmd := exec.Command("/bin/bash", "-c", command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error executing command %s: %v", command, err)
+		log.Printf("Error executing command: %s, error: %v", command, err)
 	}
-	log.Printf("Output from command %s: %s", command, string(output))
+	log.Printf("Output: %s", string(output))
 }
 
-// main initializes and runs the cron scheduler
-// Creates separate tickers for @every tasks
-// and a main ticker for standard cron tasks
 func main() {
 	tasks := loadTasks()
 
-	// Создаем отдельные тикеры для каждой @every задачи
+	for _, task := range tasks {
+		log.Printf("Scheduled task: '%s' with schedule '%s'", task.command, task.rawSchedule)
+	}
+
 	for _, task := range tasks {
 		if task.isEvery {
 			go func(t *CronSchedule) {
 				ticker := time.NewTicker(t.interval)
 				defer ticker.Stop()
-
 				for range ticker.C {
-					go executeCommand(t.command)
+					executeCommand(t.command)
 				}
 			}(task)
 		}
 	}
 
-	// Main ticker for regular cron jobs
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	for {
-		select {
-		case t := <-ticker.C:
-			for _, task := range tasks {
-				if !task.isEvery && task.shouldRun(t) {
-					go executeCommand(task.command)
-				}
+		now := <-ticker.C
+		for _, task := range tasks {
+			if !task.isEvery && task.shouldRun(now) {
+				go executeCommand(task.command)
 			}
 		}
 	}
