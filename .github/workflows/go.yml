@@ -18,6 +18,24 @@ jobs:
       contents: write
       packages: write
 
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+          - os: windows
+            arch: amd64
+            suffix: .exe
+          - os: windows
+            arch: arm64
+            suffix: .exe
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,14 +45,21 @@ jobs:
           go-version: "1.23.3"
 
       - name: Build
-        run: go build -v ./...
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
 
       - name: Test
         run: go test -v ./...
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
+          path: gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
+
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.1.0
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: gron
-          generate_release_notes: true
+          files: gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
+          generate_release_notes: false
