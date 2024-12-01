@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    
+
     strategy:
       matrix:
         include:
@@ -47,6 +47,9 @@ jobs:
       - name: Build
         run: |
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
+
+      - name: Test
+        run: go test -v ./...
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
