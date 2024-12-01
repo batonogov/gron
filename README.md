@@ -11,7 +11,7 @@ A simple and flexible task scheduler in a Docker container that supports both st
 
 ## Usage
 
-### Basic Example
+### Using Docker Image
 
 ```bash
 docker run --rm \
@@ -20,6 +20,33 @@ docker run --rm \
 -e 'TASK_2=@every 10s /scripts/test_script2.sh' \
 -e 'TASK_3=@hourly /scripts/test_script3.sh' \
 ghcr.io/batonogov/gron:v0.1.1
+```
+
+### Using Binary in Your Dockerfile
+
+You can download and use pre-built binaries in your own Docker images. Binaries are available for multiple platforms:
+
+- Linux (amd64, arm64)
+- macOS (Intel, Apple Silicon)
+- Windows
+
+Example Dockerfile:
+
+```dockerfile
+FROM alpine:latest
+
+# Download gron binary for linux/amd64
+ADD https://github.com/batonogov/gron/releases/download/v0.1.1/gron-linux-amd64 /usr/local/bin/gron
+
+# Make it executable
+RUN chmod +x /usr/local/bin/gron
+
+# Your configuration
+COPY ./scripts /scripts
+ENV TASK_1="*/5 * * * * /scripts/backup.sh"
+
+# Run gron
+CMD ["/usr/local/bin/gron"]
 ```
 
 ### Command Structure
