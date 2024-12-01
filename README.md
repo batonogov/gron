@@ -19,7 +19,7 @@ docker run --rm \
 -e 'TASK_1=*/1 * * * * /scripts/test_script1.sh' \
 -e 'TASK_2=@every 10s /scripts/test_script2.sh' \
 -e 'TASK_3=@hourly /scripts/test_script3.sh' \
-ghcr.io/batonogov/gron:v0.1.0
+ghcr.io/batonogov/gron:v0.1.1
 ```
 
 ### Command Structure
@@ -28,7 +28,7 @@ ghcr.io/batonogov/gron:v0.1.0
 docker run [docker-options] \
 -v '/path/to/scripts:/scripts' \
 -e 'TASK_NAME=schedule command' \
-ghcr.io/batonogov/gron:v0.1.0
+ghcr.io/batonogov/gron:v0.1.1
 ```
 
 ### Supported Schedule Formats
@@ -71,7 +71,7 @@ docker run --rm \
 -e 'TASK_1=/5 /scripts/backup.sh' \
 -e 'TASK_2=@every 1h /scripts/health_check.sh' \
 -e 'TASK_3=@daily /scripts/daily_report.sh' \
-ghcr.io/batonogov/gron:v0.1.0
+ghcr.io/batonogov/gron:v0.1.1
 ```
 
 ## License
