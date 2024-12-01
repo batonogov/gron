@@ -47,6 +47,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | tr '/' '%2F')
           echo "module github.com/${{ github.repository }}" > go.mod
           go mod tidy
           GOPROXY=proxy.golang.org go list -m github.com/${{ github.repository }}@${{ github.ref_name }}
@@ -54,5 +55,6 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/user/packages/go/github.com%2F${{ github.repository }}/versions" \
-            -d "{\"name\":\"${{ github.ref_name }}\"}"
+            -H "Content-Type: application/json" \
+            "https://api.github.com/user/packages/go/${REPO_NAME}/versions" \
+            -d "{\"name\":\"${{ github.ref_name }}\",\"version\":\"${{ github.ref_name }}\"}"
