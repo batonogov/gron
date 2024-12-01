@@ -15,6 +15,7 @@ type CronField struct {
 	min, max int
 }
 
+// Define valid ranges for each cron field
 var cronFields = []CronField{
 	{0, 59}, // minutes
 	{0, 23}, // hours
@@ -36,6 +37,7 @@ type CronSchedule struct {
 	rawSchedule string        // Original schedule string for logging
 }
 
+// Predefined special schedule formats
 var specialSchedules = map[string]string{
 	"@hourly":  "0 * * * *",
 	"@daily":   "0 0 * * *",
@@ -44,6 +46,11 @@ var specialSchedules = map[string]string{
 	"@yearly":  "0 0 1 1 *",
 }
 
+// parseField parses a single field of a cron expression
+// Supports:
+// - "*" for any value
+// - "*/n" for step values
+// - specific numbers
 func parseField(field string, limits CronField) ([]int, error) {
 	var result []int
 	if field == "*" {
@@ -104,6 +111,8 @@ func parseField(field string, limits CronField) ([]int, error) {
 	return []int{val}, nil
 }
 
+// parseCronSchedule parses a complete cron expression into a CronSchedule
+// Supports both standard cron format and special formats (@hourly, @daily, etc.)
 func parseCronSchedule(cronExpr string) (*CronSchedule, error) {
 	if strings.HasPrefix(cronExpr, "@") {
 		if schedule, ok := specialSchedules[cronExpr]; ok {
@@ -143,6 +152,8 @@ func parseCronSchedule(cronExpr string) (*CronSchedule, error) {
 	return schedule, nil
 }
 
+// parseEveryFormat parses the @every duration format
+// Example: "@every 1h30m"
 func parseEveryFormat(duration string) (*CronSchedule, error) {
 	durationStr := strings.TrimPrefix(duration, "@every ")
 	d, err := time.ParseDuration(durationStr)
@@ -206,6 +217,7 @@ func loadTasks() []*CronSchedule {
 	return tasks
 }
 
+// shouldRun checks if the schedule should run at the given time
 func (s *CronSchedule) shouldRun(t time.Time) bool {
 	contains := func(arr []int, val int) bool {
 		for _, v := range arr {
@@ -232,6 +244,9 @@ func executeCommand(command string) {
 	log.Printf("Output: %s", string(output))
 }
 
+// main initializes and runs the cron scheduler
+// Creates separate tickers for @every tasks
+// and a main ticker for standard cron tasks
 func main() {
 	tasks := loadTasks()
 
