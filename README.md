@@ -16,19 +16,19 @@ A simple and flexible task scheduler in a Docker container that supports both st
 ```bash
 docker run --rm \
 -v ./scripts/:/scripts/ \
--e TASK_1=*/1 * * * * /scripts/test_script1.sh \
--e TASK_2=@every 10s /scripts/test_script2.sh \
--e TASK_3=@hourly /scripts/test_script3.sh \
-gron
+-e 'TASK_1=*/1 * * * * /scripts/test_script1.sh' \
+-e 'TASK_2=@every 10s /scripts/test_script2.sh' \
+-e 'TASK_3=@hourly /scripts/test_script3.sh' \
+ghcr.io/batonogov/gron:v0.1.0
 ```
 
 ### Command Structure
 
 ```bash
 docker run [docker-options] \
--v /path/to/scripts:/scripts \
+-v '/path/to/scripts:/scripts' \
 -e 'TASK_NAME=schedule command' \
-gron
+ghcr.io/batonogov/gron:v0.1.0
 ```
 
 ### Supported Schedule Formats
@@ -68,10 +68,10 @@ Format: `TASK_NAME=schedule command`
 ```bash
 docker run --rm \
 -v ./scripts/:/scripts/ \
--e TASK_1=/5 /scripts/backup.sh \
--e TASK_2=@every 1h /scripts/health_check.sh \
--e TASK_3=0 0 /scripts/daily_report.sh \
-gron
+-e 'TASK_1=/5 /scripts/backup.sh' \
+-e 'TASK_2=@every 1h /scripts/health_check.sh' \
+-e 'TASK_3=@daily /scripts/daily_report.sh' \
+ghcr.io/batonogov/gron:v0.1.0
 ```
 
 ## License
