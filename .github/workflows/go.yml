@@ -32,6 +32,9 @@ jobs:
           - os: windows
             arch: amd64
             suffix: .exe
+          - os: windows
+            arch: arm64
+            suffix: .exe
 
     steps:
       - uses: actions/checkout@v4

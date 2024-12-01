@@ -28,7 +28,7 @@ You can download and use pre-built binaries in your own Docker images. Binaries 
 
 - Linux (amd64, arm64)
 - macOS (Intel, Apple Silicon)
-- Windows
+- Windows (amd64, arm64)
 
 Example Dockerfile:
 
