@@ -19,7 +19,7 @@ docker run --rm \
 -e 'TASK_1=*/1 * * * * /scripts/test_script1.sh' \
 -e 'TASK_2=@every 10s /scripts/test_script2.sh' \
 -e 'TASK_3=@hourly /scripts/test_script3.sh' \
-ghcr.io/batonogov/gron:v0.1.1
+ghcr.io/batonogov/gron:latest
 ```
 
 ### Using Binary in Your Dockerfile
@@ -36,7 +36,7 @@ Example Dockerfile:
 FROM alpine:latest
 
 # Download gron binary for linux/amd64
-ADD https://github.com/batonogov/gron/releases/download/v0.1.1/gron-linux-amd64 /usr/local/bin/gron
+ADD https://github.com/batonogov/gron/releases/download/v0.2.0/gron-linux-amd64 /usr/local/bin/gron
 
 # Make it executable
 RUN chmod +x /usr/local/bin/gron
@@ -55,7 +55,7 @@ CMD ["/usr/local/bin/gron"]
 docker run [docker-options] \
 -v '/path/to/scripts:/scripts' \
 -e 'TASK_NAME=schedule command' \
-ghcr.io/batonogov/gron:v0.1.1
+ghcr.io/batonogov/gron:latest
 ```
 
 ### Supported Schedule Formats
@@ -98,7 +98,7 @@ docker run --rm \
 -e 'TASK_1=/5 /scripts/backup.sh' \
 -e 'TASK_2=@every 1h /scripts/health_check.sh' \
 -e 'TASK_3=@daily /scripts/daily_report.sh' \
-ghcr.io/batonogov/gron:v0.1.1
+ghcr.io/batonogov/gron:latest
 ```
 
 ## License
