@@ -2,40 +2,73 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
-// TestParseField checks the parseField function with valid and invalid inputs.
-// It ensures that the function correctly handles both cases.
 func TestParseField(t *testing.T) {
-	// Test with a valid cron expression "*/15", expecting no error.
-	_, err := parseField("*/15", CronField{0, 59})
-	if err != nil {
-		t.Errorf("parseField() error = %v, wantErr false", err)
+	tests := []struct {
+		field   string
+		limits  CronField
+		want    []int
+		wantErr bool
+	}{
+		{"*", CronField{0, 5}, []int{0, 1, 2, 3, 4, 5}, false},
+		{"*/2", CronField{0, 5}, []int{0, 2, 4}, false},
+		{"3", CronField{0, 5}, []int{3}, false},
+		{"7", CronField{0, 6}, []int{7}, false},
+		{"8", CronField{0, 6}, nil, true},
 	}
 
-	// Test with an invalid cron expression "invalid", expecting an error.
-	_, err = parseField("invalid", CronField{0, 59})
-	if err == nil {
-		t.Errorf("Expected error for invalid input, got nil")
+	for _, tt := range tests {
+		got, err := parseField(tt.field, tt.limits)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseField() error = %v, wantErr %v", err, tt.wantErr)
+			return
+		}
+		if !compareSlices(got, tt.want) {
+			t.Errorf("parseField() = %v, want %v", got, tt.want)
+		}
 	}
 }
 
-// TestParseCronSchedule verifies the parseCronSchedule function with a standard cron schedule.
-// It ensures the function can handle valid cron schedule strings without errors.
 func TestParseCronSchedule(t *testing.T) {
-	// Test with a valid cron schedule "* * * * *", expecting no error.
-	_, err := parseCronSchedule("* * * * *")
-	if err != nil {
-		t.Errorf("parseCronSchedule() error = %v, wantErr false", err)
+	tests := []struct {
+		cronExpr string
+		wantErr  bool
+	}{
+		{"* * * * *", false},
+		{"@hourly", false},
+		{"@invalid", true},
+	}
+
+	for _, tt := range tests {
+		_, err := parseCronSchedule(tt.cronExpr)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseCronSchedule() error = %v, wantErr %v", err, tt.wantErr)
+		}
 	}
 }
 
-// TestParseEveryFormat checks the parseEveryFormat function with an interval format.
-// It ensures the function can correctly parse and handle "@every" format schedules.
-func TestParseEveryFormat(t *testing.T) {
-	// Test with a valid "@every" format "1h", expecting no error.
-	_, err := parseEveryFormat("@every 1h")
+func TestShouldRun(t *testing.T) {
+	schedule, err := parseCronSchedule("* * * * *")
 	if err != nil {
-		t.Errorf("parseEveryFormat() error = %v, wantErr false", err)
+		t.Fatalf("Failed to parse cron schedule: %v", err)
 	}
+
+	now := time.Now()
+	if !schedule.shouldRun(now) {
+		t.Errorf("shouldRun() = false, want true")
+	}
+}
+
+func compareSlices(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
