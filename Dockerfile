@@ -5,7 +5,7 @@ RUN go mod download
 COPY main.go ./
 RUN go build -o gron main.go
 
-FROM alpine:3.20.3
+FROM alpine:3.21.0
 ENV TZ=UTC
 RUN apk add --no-cache tzdata bash && \
     ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime && \
