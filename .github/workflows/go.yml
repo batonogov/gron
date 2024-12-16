@@ -58,7 +58,7 @@ jobs:
           path: gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
 
       - name: Release
-        uses: softprops/action-gh-release@v2.1.0
+        uses: softprops/action-gh-release@v2.2.0
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: gron-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix || '' }}
