@@ -28,15 +28,14 @@ You can download and use pre-built binaries in your own Docker images. Binaries 
 
 - Linux (amd64, arm64)
 - macOS (Intel, Apple Silicon)
-- Windows (amd64, arm64)
 
 Example Dockerfile:
 
 ```dockerfile
-FROM alpine:latest
+FROM ubuntu:latest
 
 # Download gron binary for linux/amd64
-ADD https://github.com/batonogov/gron/releases/download/v0.2.0/gron-linux-amd64 /usr/local/bin/gron
+ADD https://github.com/batonogov/gron/releases/download/v0.2.2/gron-linux-amd64 /usr/local/bin/gron
 
 # Make it executable
 RUN chmod +x /usr/local/bin/gron
