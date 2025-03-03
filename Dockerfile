@@ -1,11 +1,11 @@
-FROM golang:1.23.4-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY main.go ./
 RUN go build -o gron main.go
 
-FROM alpine:3.21.2
+FROM alpine:3.21
 ENV TZ=UTC
 RUN apk add --no-cache tzdata bash && \
     ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime && \
