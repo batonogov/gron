@@ -158,6 +158,16 @@ func (s *CronSchedule) shouldRun(t time.Time) bool {
 func parseEveryFormat(duration string) (*CronSchedule, error) {
 	durationStr := strings.TrimPrefix(duration, "@every ")
 
+	// Convert days to hours
+	if strings.HasSuffix(durationStr, "d") {
+		daysStr := strings.TrimSuffix(durationStr, "d")
+		days, err := strconv.Atoi(daysStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid days format: %v", err)
+		}
+		durationStr = fmt.Sprintf("%dh", days*24)
+	}
+
 	d, err := time.ParseDuration(durationStr)
 	if err != nil {
 		return nil, err

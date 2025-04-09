@@ -92,7 +92,10 @@ func TestParseEveryFormat(t *testing.T) {
 	}{
 		{"@every 1h", time.Hour, false},
 		{"@every 30m", 30 * time.Minute, false},
+		{"@every 1d", 24 * time.Hour, false},
+		{"@every 2d", 48 * time.Hour, false},
 		{"@every abc", 0, true},
+		{"@every 1d2h", 0, true},
 	}
 
 	for _, tt := range tests {

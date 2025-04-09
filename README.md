@@ -19,6 +19,7 @@ docker run --rm \
 -e 'TASK_1=*/1 * * * * /scripts/test_script1.sh' \
 -e 'TASK_2=@every 10s /scripts/test_script2.sh' \
 -e 'TASK_3=@hourly /scripts/test_script3.sh' \
+-e 'TASK_4=@every 1d /scripts/daily_task.sh' \
 ghcr.io/batonogov/gron:latest
 ```
 
@@ -97,6 +98,7 @@ docker run --rm \
 -e 'TASK_1=/5 /scripts/backup.sh' \
 -e 'TASK_2=@every 1h /scripts/health_check.sh' \
 -e 'TASK_3=@daily /scripts/daily_report.sh' \
+-e 'TASK_4=@every 1d /scripts/daily_task.sh' \
 ghcr.io/batonogov/gron:latest
 ```
 
