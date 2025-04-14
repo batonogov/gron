@@ -50,7 +50,28 @@ jobs:
         docker run -d --name gron-test \
           -e "TASK_TEST=@every 5s echo 'Test task running'" \
           gron:test
+
+        # Wait for tasks to run
         sleep 10
-        docker logs gron-test | grep "Test task running"
+
+        # Check if container is still running (should be)
+        CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' gron-test)
+        echo "Container status: $CONTAINER_STATUS"
+        if [ "$CONTAINER_STATUS" != "running" ]; then
+          echo "Error: Container is not running"
+          docker logs gron-test
+          exit 1
+        fi
+
+        # Check for task execution
+        TASK_COUNT=$(docker logs gron-test | grep -c "Test task running")
+        echo "Task execution count: $TASK_COUNT"
+        if [ "$TASK_COUNT" -lt 1 ]; then
+          echo "Error: No tasks executed"
+          docker logs gron-test
+          exit 1
+        fi
+
+        # Clean up
         docker stop gron-test
         docker rm gron-test
