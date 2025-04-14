@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -264,12 +266,21 @@ var defaultCommandRunner CommandRunner = &RealCommandRunner{}
 func executeCommand(command string) {
 	log.Printf("Running command: %s", command)
 
+	// Check if bash exists, fallback to sh if not
+	shell := "/bin/bash"
+	if _, err := os.Stat(shell); os.IsNotExist(err) {
+		shell = "/bin/sh"
+		log.Printf("Bash not found, using sh instead")
+	}
+
 	// u0438u0441u043fu043eu043bu044cu0437u0443u0435u043c u0438u043du0442u0435u0440u0444u0435u0439u0441 CommandRunner u0434u043bu044f u0432u043eu0437u043cu043eu0436u043du043eu0441u0442u0438 u043cu043eu043au0438u0440u043eu0432u0430u043du0438u044f
-	output, err := defaultCommandRunner.Run("/bin/bash", "-c", command)
+	output, err := defaultCommandRunner.Run(shell, "-c", command)
 
 	if err != nil {
 		log.Printf("Error executing command %s: %v", command, err)
+		// Don't exit, just log the error and continue
 	}
+
 	log.Printf("Output from command %s: %s", command, string(output))
 }
 
@@ -285,10 +296,18 @@ func createEveryTickers(tasks []*CronSchedule) []*time.Ticker {
 
 	for _, task := range tasks {
 		if task.isEvery {
+			log.Printf("Setting up @every ticker for task '%s' with interval %v", task.command, task.interval)
 			ticker := time.NewTicker(task.interval)
 			tickers = append(tickers, ticker)
 
 			go func(t *CronSchedule, tkr *time.Ticker) {
+				// Recover from panics
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("Recovered from panic in @every ticker for '%s': %v", t.command, r)
+					}
+				}()
+
 				for range tkr.C {
 					go executeCommand(t.command)
 				}
@@ -321,13 +340,24 @@ func startCronScheduler(tasks []*CronSchedule) {
 		}
 	}()
 
+	// Recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in scheduler: %v", r)
+		}
+	}()
+
 	// Main ticker for regular cron jobs
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
+	// Log initial startup
+	log.Printf("Scheduler started with %d tasks", len(tasks))
+
 	for {
 		select {
 		case t := <-ticker.C:
+			log.Printf("Running cron tasks at %s", t.Format(time.RFC3339))
 			runCronTasks(tasks, t)
 		}
 	}
@@ -336,6 +366,24 @@ func startCronScheduler(tasks []*CronSchedule) {
 // main initializes and runs the cron scheduler.
 // Creates separate tickers for @every tasks and a main ticker for standard cron tasks.
 func main() {
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
 	tasks := loadTasks()
-	startCronScheduler(tasks)
+
+	// Start scheduler in a goroutine
+	done := make(chan bool)
+	go func() {
+		startCronScheduler(tasks)
+		done <- true
+	}()
+
+	// Wait for either a signal or scheduler completion
+	select {
+	case sig := <-sigChan:
+		log.Printf("Received signal %v, shutting down...", sig)
+	case <-done:
+		log.Printf("Scheduler completed unexpectedly")
+	}
 }
