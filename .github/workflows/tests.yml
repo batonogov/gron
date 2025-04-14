@@ -45,12 +45,41 @@ jobs:
       run: |
         docker build . --tag gron:test
 
-    - name: Test Docker image
+    - name: Start Docker container for testing
       run: |
         docker run -d --name gron-test \
           -e "TASK_TEST=@every 5s echo 'Test task running'" \
           gron:test
+
+        # Wait for tasks to run
         sleep 10
-        docker logs gron-test | grep "Test task running"
-        docker stop gron-test
-        docker rm gron-test
+
+    - name: Check if container is running
+      run: |
+        CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' gron-test)
+        echo "Container status: $CONTAINER_STATUS"
+        if [ "$CONTAINER_STATUS" != "running" ]; then
+          echo "Error: Container is not running"
+          docker logs gron-test
+          exit 1
+        fi
+
+    - name: Check for task execution
+      run: |
+        # Redirect stderr to stdout to avoid pipe failure
+        LOGS=$(docker logs gron-test 2>&1)
+        echo "$LOGS"
+
+        # Count task executions carefully to avoid pipe failures
+        if ! echo "$LOGS" | grep -q "Test task running"; then
+          echo "Error: No tasks executed"
+          exit 1
+        else
+          echo "✅ Tasks executed successfully"
+        fi
+
+    - name: Clean up container
+      if: always()
+      run: |
+        docker stop gron-test || true
+        docker rm gron-test || true

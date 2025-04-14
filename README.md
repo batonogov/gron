@@ -2,7 +2,7 @@
 
 [![Test Coverage: 80%](https://img.shields.io/badge/Test%20Coverage-80%25-success)](./)
 [![Tests](https://github.com/batonogov/gron/actions/workflows/tests.yml/badge.svg)](https://github.com/batonogov/gron/actions/workflows/tests.yml)
-[![Docker Image](https://github.com/batonogov/gron/actions/workflows/release.yml/badge.svg)](https://github.com/batonogov/gron/actions/workflows/release.yml)
+[![Docker Image](https://github.com/batonogov/gron/actions/workflows/go.yml/badge.svg)](https://github.com/batonogov/gron/actions/workflows/go.yml)
 
 A simple and flexible task scheduler in a Docker container that supports both standard cron syntax and simplified intervals.
 
@@ -12,6 +12,8 @@ A simple and flexible task scheduler in a Docker container that supports both st
 - Simplified interval syntax (`@every`)
 - Script execution from mounted directory
 - Easy configuration via environment variables
+- Robust signal handling for graceful container shutdown
+- Continuous task execution without premature exit
 
 ## Usage
 
@@ -127,6 +129,15 @@ task docker:logs    # View logs
 task docker:stop    # Stop container
 ```
 
+### Docker Container Behavior
+
+The application is designed to run continuously in a Docker container and will:
+
+- Properly handle SIGTERM and SIGINT signals for graceful shutdown
+- Continue running tasks until explicitly stopped
+- Never exit prematurely, ensuring all scheduled tasks run as expected
+- Automatically restart the scheduler if it unexpectedly exits
+
 ### Testing
 
 The project has comprehensive test coverage (80%) including:
@@ -134,6 +145,7 @@ The project has comprehensive test coverage (80%) including:
 - Unit tests for parsing cron expressions
 - Tests for command execution logic
 - Tests for scheduler functionality
+- Docker container lifecycle tests
 
 To run tests with coverage report:
 

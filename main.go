@@ -368,22 +368,44 @@ func startCronScheduler(tasks []*CronSchedule) {
 func main() {
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	// Listen for both SIGINT (Ctrl+C) and SIGTERM (docker stop)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
 
 	tasks := loadTasks()
 
+	// If no tasks are loaded, log a warning but don't exit
+	if len(tasks) == 0 {
+		log.Printf("Warning: No tasks loaded from environment variables")
+	}
+
 	// Start scheduler in a goroutine
-	done := make(chan bool)
 	go func() {
+		// Recover from panics in the scheduler
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Recovered from panic in scheduler: %v", r)
+			}
+		}()
 		startCronScheduler(tasks)
-		done <- true
+		// This should never happen, but if it does, log it
+		log.Printf("Scheduler completed unexpectedly, restarting...")
+		// Restart the scheduler if it exits unexpectedly
+		go startCronScheduler(tasks)
 	}()
 
-	// Wait for either a signal or scheduler completion
-	select {
-	case sig := <-sigChan:
+	// Create a channel for graceful exit
+	done := make(chan struct{})
+
+	// Handle signals
+	go func() {
+		sig := <-sigChan
 		log.Printf("Received signal %v, shutting down...", sig)
-	case <-done:
-		log.Printf("Scheduler completed unexpectedly")
-	}
+		// Close the done channel to signal exit
+		close(done)
+	}()
+
+	// Block until done
+	<-done
+	// Exit with success code
+	os.Exit(0)
 }
