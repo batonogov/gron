@@ -141,16 +141,13 @@ func (s *CronSchedule) shouldRun(t time.Time) bool {
 	}
 
 	dayOfWeek := int(t.Weekday())
-	// In cron, 7 is also considered Sunday.
-	if dayOfWeek == 0 {
-		dayOfWeek = 7
-	}
 
 	return contains(s.minutes, t.Minute()) &&
 		contains(s.hours, t.Hour()) &&
 		contains(s.daysOfMonth, t.Day()) &&
 		contains(s.months, int(t.Month())) &&
-		contains(s.daysOfWeek, dayOfWeek)
+		// Проверяем оба возможных представления воскресенья (0 и 7)
+		(contains(s.daysOfWeek, dayOfWeek) || (dayOfWeek == 0 && contains(s.daysOfWeek, 7)))
 }
 
 // parseEveryFormat parses the @every duration format.
@@ -245,49 +242,100 @@ func loadTasks() []*CronSchedule {
 	return tasks
 }
 
+// CommandRunner u0438u043du0442u0435u0440u0444u0435u0439u0441 u0434u043bu044f u0437u0430u043fu0443u0441u043au0430 u043au043eu043cu0430u043du0434
+type CommandRunner interface {
+	Run(command string, args ...string) ([]byte, error)
+}
+
+// RealCommandRunner u0440u0435u0430u043bu044cu043du044bu0439 u0438u0441u043fu043eu043bu043du0438u0442u0435u043bu044c u043au043eu043cu0430u043du0434
+type RealCommandRunner struct{}
+
+// Run u0432u044bu043fu043eu043bu043du044fu0435u0442 u043au043eu043cu0430u043du0434u0443 u0438 u0432u043eu0437u0432u0440u0430u0449u0430u0435u0442 u0432u044bu0432u043eu0434
+func (r *RealCommandRunner) Run(command string, args ...string) ([]byte, error) {
+	cmd := exec.Command(command, args...)
+	return cmd.CombinedOutput()
+}
+
+// u0433u043bu043eu0431u0430u043bu044cu043du044bu0439 u0438u0441u043fu043eu043bu043du0438u0442u0435u043bu044c u043au043eu043cu0430u043du0434
+var defaultCommandRunner CommandRunner = &RealCommandRunner{}
+
 // executeCommand runs the specified command using bash.
 // Logs both the command execution and its output.
 func executeCommand(command string) {
 	log.Printf("Running command: %s", command)
-	cmd := exec.Command("/bin/bash", "-c", command)
-	output, err := cmd.CombinedOutput()
+
+	// u0438u0441u043fu043eu043bu044cu0437u0443u0435u043c u0438u043du0442u0435u0440u0444u0435u0439u0441 CommandRunner u0434u043bu044f u0432u043eu0437u043cu043eu0436u043du043eu0441u0442u0438 u043cu043eu043au0438u0440u043eu0432u0430u043du0438u044f
+	output, err := defaultCommandRunner.Run("/bin/bash", "-c", command)
+
 	if err != nil {
 		log.Printf("Error executing command %s: %v", command, err)
 	}
 	log.Printf("Output from command %s: %s", command, string(output))
 }
 
-// main initializes and runs the cron scheduler.
-// Creates separate tickers for @every tasks and a main ticker for standard cron tasks.
-func main() {
-	tasks := loadTasks()
+// setCommandRunner u0443u0441u0442u0430u043du0430u0432u043bu0438u0432u0430u0435u0442 u043au0430u0441u0442u043eu043cu043du044bu0439 u0438u0441u043fu043eu043bu043du0438u0442u0435u043bu044c u043au043eu043cu0430u043du0434 (u0434u043bu044f u0442u0435u0441u0442u043eu0432)
+func setCommandRunner(runner CommandRunner) {
+	defaultCommandRunner = runner
+}
 
-	// Create separate tickers for each @every task.
+// createEveryTickers creates tickers for tasks with @every format.
+// Returns a slice of created tickers for cleanup purpose.
+func createEveryTickers(tasks []*CronSchedule) []*time.Ticker {
+	var tickers []*time.Ticker
+
 	for _, task := range tasks {
 		if task.isEvery {
-			go func(t *CronSchedule) {
-				ticker := time.NewTicker(t.interval)
-				defer ticker.Stop()
+			ticker := time.NewTicker(task.interval)
+			tickers = append(tickers, ticker)
 
-				for range ticker.C {
+			go func(t *CronSchedule, tkr *time.Ticker) {
+				for range tkr.C {
 					go executeCommand(t.command)
 				}
-			}(task)
+			}(task, ticker)
 		}
 	}
 
-	// Main ticker for regular cron jobs.
+	return tickers
+}
+
+// runCronTasks runs standard cron tasks that match the current time.
+func runCronTasks(tasks []*CronSchedule, currentTime time.Time) {
+	for _, task := range tasks {
+		if !task.isEvery && task.shouldRun(currentTime) {
+			go executeCommand(task.command)
+		}
+	}
+}
+
+// startCronScheduler starts the main cron scheduler loop.
+// This is a blocking function that runs indefinitely.
+func startCronScheduler(tasks []*CronSchedule) {
+	// Setup and start the tickers for @every tasks
+	everyTickers := createEveryTickers(tasks)
+
+	// Make sure to clean up all tickers when done
+	defer func() {
+		for _, ticker := range everyTickers {
+			ticker.Stop()
+		}
+	}()
+
+	// Main ticker for regular cron jobs
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case t := <-ticker.C:
-			for _, task := range tasks {
-				if !task.isEvery && task.shouldRun(t) {
-					go executeCommand(task.command)
-				}
-			}
+			runCronTasks(tasks, t)
 		}
 	}
+}
+
+// main initializes and runs the cron scheduler.
+// Creates separate tickers for @every tasks and a main ticker for standard cron tasks.
+func main() {
+	tasks := loadTasks()
+	startCronScheduler(tasks)
 }

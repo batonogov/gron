@@ -1,5 +1,9 @@
 # Gron - Docker Cron Scheduler
 
+[![Test Coverage: 80%](https://img.shields.io/badge/Test%20Coverage-80%25-success)](./)
+[![Tests](https://github.com/batonogov/gron/actions/workflows/tests.yml/badge.svg)](https://github.com/batonogov/gron/actions/workflows/tests.yml)
+[![Docker Image](https://github.com/batonogov/gron/actions/workflows/release.yml/badge.svg)](https://github.com/batonogov/gron/actions/workflows/release.yml)
+
 A simple and flexible task scheduler in a Docker container that supports both standard cron syntax and simplified intervals.
 
 ## Features
@@ -100,6 +104,41 @@ docker run --rm \
 -e 'TASK_3=@daily /scripts/daily_report.sh' \
 -e 'TASK_4=@every 1d /scripts/daily_task.sh' \
 ghcr.io/batonogov/gron:latest
+```
+
+## Development
+
+This project uses [Task](https://taskfile.dev) for build automation. After cloning the repository, you can use the following commands:
+
+```bash
+# Build the application
+task build
+
+# Run tests
+task test
+
+# Check test coverage
+task test:coverage:detail
+
+# Docker operations
+task docker:build   # Build Docker image
+task docker:run     # Run container
+task docker:logs    # View logs
+task docker:stop    # Stop container
+```
+
+### Testing
+
+The project has comprehensive test coverage (80%) including:
+
+- Unit tests for parsing cron expressions
+- Tests for command execution logic
+- Tests for scheduler functionality
+
+To run tests with coverage report:
+
+```bash
+task test:coverage:detail
 ```
 
 ## License
